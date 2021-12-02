@@ -1,7 +1,9 @@
 import pandas
 import plotly.express as px
 import streamlit
+from pandas import DataFrame
 
+from moex_stock.shares import SharesMarket
 from vtb.position_report import PositionReport
 
 upload_file = streamlit.sidebar.file_uploader('Выберите csv-файл отчет по позициям от брокера ВТБ', 'csv')
@@ -10,6 +12,14 @@ upload_file = streamlit.sidebar.file_uploader('Выберите csv-файл о�
 @streamlit.cache
 def get_position_report(file: str) -> PositionReport:
     return PositionReport(file)
+
+
+@streamlit.cache
+def get_tickers() -> list:
+    df = SharesMarket.update_stock_data()
+    df = df[df['sectype'].isin(['usual', 'pref', 'dr'])]
+    tickers = df['longname'].values
+    return tickers
 
 
 if upload_file is not None:
@@ -70,4 +80,4 @@ if upload_file is not None:
         streamlit.plotly_chart(region_pie)
         streamlit.plotly_chart(corporate_pie)
 
-
+select_company = streamlit.sidebar.selectbox('Тикер', get_tickers())

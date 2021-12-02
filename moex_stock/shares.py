@@ -1,8 +1,6 @@
 import pandas
 from pandas import DataFrame
 
-from yahoo.yahoo_finance import YahooFinance
-
 
 # https://iss.moex.com/iss/engines/stock/markets/shares/securities.xml?iss.meta=off - список всех акций
 # https://iss.moex.com/iss/engines/stock/markets/shares.xml?iss.meta=off  - справка по рынкам акций
@@ -73,16 +71,3 @@ class SharesMarket:
         securities_data['sectype'] = securities_data['sectype'].replace('J', 'stock_pif')
 
         return securities_data
-
-    @staticmethod
-    def add_yahoo_finance_info(shares_stock_df) -> DataFrame:
-        shares_df = shares_stock_df[shares_stock_df['sectype'].isin(['usual', 'pref', 'dr'])]
-        tickers = shares_df['ticker'].values
-        yf_info_df = YahooFinance.get_info(tickers)
-        return yf_info_df
-
-
-if __name__ == '__main__':
-    df = SharesMarket.update_stock_data()
-    df = SharesMarket.add_yahoo_finance_info(df)
-    print(df)
