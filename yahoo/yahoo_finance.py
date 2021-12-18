@@ -3,148 +3,92 @@ from pandas import DataFrame
 
 
 class YahooFinance:
-    @staticmethod
-    def get_info(tickers: list) -> DataFrame:
-        df = DataFrame()
-        for ticker in tickers:
-            data = yfinance.Ticker(ticker.upper() + '.ME')
-            info_dict = data.info
-            df = df.append(DataFrame(data=[info_dict.values()], columns=info_dict.keys(), index=[ticker]))
-        return df
+    def __init__(self, ticker: str):
+        self.ticker = ticker
+        self.__data = yfinance.Ticker(ticker.upper() + '.ME')
 
-    @staticmethod
-    def get_history(ticker: str, period: str = None, interval: str = None) -> DataFrame:
+    def get_info(self) -> DataFrame:
+        info_dict = self.__data.info
+        # df = DataFrame(data=[info_dict.values()], columns=info_dict.keys(), index=[self.ticker])
+        # df = df.dropna(axis='columns', how='all', inplace=False)
+        return info_dict
+
+    def get_history(self, period: str = None) -> DataFrame:
         # get historical market data
         # Valid periods: 1d,5d,1mo,3mo,6mo,1y,2y,5y,10y,ytd,max
-        # Either Use period parameter or use start and end
 
-        # Valid intervals: 1m,2m,5m,15m,30m,60m,90m,1h,1d,5d,1wk,1mo,3mo
-        # Intraday data cannot extend last 60 days
-
-        data = yfinance.Ticker(ticker.upper() + '.ME')
-        if period or interval is not None:
-            df = data.history(period, interval)
+        if period is not None:
+            df = self.__data.history(period)
         else:
-            df = data.history()
+            df = self.__data.history()
         return df
 
-    @staticmethod
-    def get_actions(ticker: str) -> DataFrame:
+    def get_actions(self) -> DataFrame:
         # show actions (dividends, splits)
-        data = yfinance.Ticker(ticker.upper() + '.ME')
-        df = data.actions
-        return df
+        return self.__data.actions
 
-    @staticmethod
-    def get_dividends(ticker: str) -> DataFrame:
+    def get_dividends(self) -> DataFrame:
         # show dividends
-        data = yfinance.Ticker(ticker.upper() + '.ME')
-        df = data.dividends
-        return df
+        return self.__data.dividends
 
-    @staticmethod
-    def get_splits(ticker: str) -> DataFrame:
+    def get_splits(self) -> DataFrame:
         # show splits
-        data = yfinance.Ticker(ticker.upper() + '.ME')
-        df = data.splits
+        return self.__data.splits
+
+    def get_financials(self, quarterly: bool = False) -> DataFrame:
+        if quarterly:
+            df = self.__data.quarterly_financials
+        else:
+            df = self.__data.financials
+        df = df.T.dropna(axis='columns', how='all', inplace=False)
         return df
 
-    @staticmethod
-    def get_financials_yearly(ticker: str) -> DataFrame:
-        data = yfinance.Ticker(ticker.upper() + '.ME')
-        df = data.financials
-        return df
-
-    @staticmethod
-    def get_financials_quarterly(ticker: str) -> DataFrame:
-        # show financials
-        data = yfinance.Ticker(ticker.upper() + '.ME')
-        df = data.quarterly_financials
-        return df
-
-    @staticmethod
-    def get_major_holders(ticker: str) -> DataFrame:
+    def get_major_holders(self) -> DataFrame:
         # show major holders
-        data = yfinance.Ticker(ticker.upper() + '.ME')
-        df = data.major_holders
-        return df
+        return self.__data.major_holders
 
-    @staticmethod
-    def get_institutional_holders(ticker: str) -> DataFrame:
+    def get_institutional_holders(self) -> DataFrame:
         # show institutional holders
-        data = yfinance.Ticker(ticker.upper() + '.ME')
-        df = data.institutional_holders
-        return df
+        return self.__data.institutional_holders
 
-    @staticmethod
-    def get_balance_sheet_yearly(ticker: str) -> DataFrame:
+    def get_balance_sheet(self, quarterly: bool = False) -> DataFrame:
         # show balance sheet
-        data = yfinance.Ticker(ticker.upper() + '.ME')
-        df = data.balance_sheet
-        return df
+        if quarterly:
+            df = self.__data.quarterly_balance_sheet
+        else:
+            df = self.__data.balance_sheet
+        return df.T
 
-    @staticmethod
-    def get_balance_sheet_quarterly(ticker: str) -> DataFrame:
-        # show balance sheet
-        data = yfinance.Ticker(ticker.upper() + '.ME')
-        df = data.quarterly_balance_sheet
-        return df
-
-    @staticmethod
-    def get_cashflow_yearly(ticker: str) -> DataFrame:
+    def get_cashflow(self, quarterly: bool = False) -> DataFrame:
         # show cashflow
-        data = yfinance.Ticker(ticker.upper() + '.ME')
-        df = data.cashflow
-        return df
+        if quarterly:
+            df = self.__data.quarterly_cashflow
+        else:
+            df = self.__data.cashflow
+        return df.T
 
-    @staticmethod
-    def get_cashflow_quarterly(ticker: str) -> DataFrame:
-        # show cashflow
-        data = yfinance.Ticker(ticker.upper() + '.ME')
-        df = data.quarterly_cashflow
-        return df
-
-    @staticmethod
-    def get_earnings_yearly(ticker: str) -> DataFrame:
+    def get_earnings(self, quarterly: bool = False) -> DataFrame:
         # show earnings
-        data = yfinance.Ticker(ticker.upper() + '.ME')
-        df = data.earnings
+        if quarterly:
+            df = self.__data.quarterly_earnings
+        else:
+            df = self.__data.earnings
         return df
 
-    @staticmethod
-    def get_earnings_quarterly(ticker: str) -> DataFrame:
-        # show earnings
-        data = yfinance.Ticker(ticker.upper() + '.ME')
-        df = data.quarterly_earnings
-        return df
-
-    @staticmethod
-    def get_sustainability(ticker: str) -> DataFrame:
+    def get_sustainability(self) -> DataFrame:
         # show sustainability
-        data = yfinance.Ticker(ticker.upper() + '.ME')
-        df = data.sustainability
-        return df
+        return self.__data.sustainability
 
-    @staticmethod
-    def get_recommendations(ticker: str) -> DataFrame:
+    def get_recommendations(self) -> DataFrame:
         # show analysts recommendations
-        data = yfinance.Ticker(ticker.upper() + '.ME')
-        df = data.recommendations
-        return df
+        return self.__data.recommendations
 
-    @staticmethod
-    def get_calendar(ticker: str) -> DataFrame:
+    def get_calendar(self) -> DataFrame:
         # show next event (earnings, etc)
-        data = yfinance.Ticker(ticker.upper() + '.ME')
-        df = data.calendar
-        return df
+        return self.__data.calendar
 
-    @staticmethod
-    def get_news(tickers: list) -> DataFrame:
+    def get_news(self) -> DataFrame:
         # show news
-        df = DataFrame()
-        for ticker in tickers:
-            data = yfinance.Ticker(ticker.upper() + '.ME')
-            news_dict = data.news[0]
-            df = df.append(DataFrame(data=[news_dict.values()], columns=news_dict.keys(), index=[ticker]))
+        news_dict = self.__data.news[0]
+        df = DataFrame(data=[news_dict.values()], columns=news_dict.keys(), index=[self.ticker])
         return df

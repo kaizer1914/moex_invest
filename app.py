@@ -3,10 +3,10 @@ import plotly.express as px
 import streamlit
 from pandas import DataFrame
 
+from moex_stock.bonds import BondsMarket
 from moex_stock.shares import SharesMarket
 from vtb.position_report import PositionReport
-
-upload_file = streamlit.sidebar.file_uploader('Выберите csv-файл отчет по позициям от брокера ВТБ', 'csv')
+from yahoo.yahoo_finance import YahooFinance
 
 
 @streamlit.cache
@@ -15,13 +15,24 @@ def get_position_report(file: str) -> PositionReport:
 
 
 @streamlit.cache
-def get_tickers() -> list:
-    df = SharesMarket.update_stock_data()
-    df = df[df['sectype'].isin(['usual', 'pref', 'dr'])]
-    tickers = df['longname'].values
-    return tickers
+def get_shares_and_etf_df() -> DataFrame:
+    shares_and_etf_df = SharesMarket.update_stock_data()
+    return shares_and_etf_df
 
 
+@streamlit.cache
+def get_bonds_stock_df() -> DataFrame:
+    bonds_stock_df = BondsMarket.update_stock_data()
+    return bonds_stock_df
+
+
+def get_shares_df() -> DataFrame:
+    shares_df = get_shares_and_etf_df()
+    shares_df = shares_df[shares_df['sectype'].isin(['usual', 'pref', 'dr'])]
+    return shares_df
+
+
+upload_file = streamlit.sidebar.file_uploader('Отчет по позициям (ВТБ)', 'csv')
 if upload_file is not None:
     position_report = get_position_report(upload_file)
 
@@ -80,4 +91,38 @@ if upload_file is not None:
         streamlit.plotly_chart(region_pie)
         streamlit.plotly_chart(corporate_pie)
 
-select_company = streamlit.sidebar.selectbox('Тикер', get_tickers())
+select_company = streamlit.multiselect('Тикеры', get_shares_df()['ticker'])
+if select_company:
+    # labels = {'Close': 'Цена акции', 'Date': 'Дата', 'Dividends': 'Дивиденд'}
+
+    for ticker in select_company:
+        name = get_shares_df().isin([ticker]).values[0]
+        streamlit.write(name)
+        info = YahooFinance(ticker).get_info()
+        streamlit.write(info)
+        streamlit.write(f"[{ticker}] ({info.get('website')})")
+
+    # history_df = yahoo_data.get_history('max')
+    # history_area = px.area(history_df, x=history_df.index, y='Close', labels=labels)
+    # streamlit.plotly_chart(history_area)
+    #
+    # select_period = streamlit.radio('Отчеты', ['Годовые', 'Квартальные'])
+    # quarterly_period = False
+    # if select_period == 'Годовые':
+    #     quarterly_period = False
+    # elif select_period == 'Квартальные':
+    #     quarterly_period = True
+    #
+    # select_report = streamlit.radio('Тип отчета', ['Прибыль', 'Баланс', 'Денежные потоки'])
+    # financials_df = DataFrame()
+    # if select_report == 'Прибыль':
+    #     financials_df = yahoo_data.get_financials(quarterly_period)
+    # elif select_report == 'Баланс':
+    #     financials_df = yahoo_data.get_balance_sheet(quarterly_period)
+    # elif select_report == 'Денежные потоки':
+    #     financials_df = yahoo_data.get_cashflow(quarterly_period)
+    #
+    # select_financials = streamlit.selectbox('Показатель', financials_df.columns)
+    # financials_bar = px.bar(financials_df, x=financials_df.index, y=select_financials, labels=labels)
+    # streamlit.plotly_chart(financials_bar)
+    # streamlit.write(financials_df.T)

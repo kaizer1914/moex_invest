@@ -25,13 +25,19 @@ class EtfParser:
         soup = BeautifulSoup(response.text, 'lxml')
         table = soup.findAll('table')[1].tbody
         rows = table.find_all('tr')
-        data = list()
+        # print(rows)
 
+        data = list()
         for row in rows:
             cols = row.find_all('td')
+            headers = row.find_all('strong')
             cols = [element.text.strip() for element in cols]
-            data.append([element for element in cols if element])
-        data.pop(0)
+            headers = [element.string for element in headers]
+            if cols:
+                data.append([element for element in cols if element])
+            elif headers:
+                data.append(headers)
+        print(data)
 
         bonds_index = 0
         cash_index = 0
