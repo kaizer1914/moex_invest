@@ -1,6 +1,8 @@
 import yfinance
 from pandas import DataFrame
 
+from moex_stock.moscow_exchange import MoscowExchange
+
 
 class YahooFinance:
     def __init__(self, ticker: str):
@@ -9,14 +11,56 @@ class YahooFinance:
 
     def get_info(self) -> DataFrame:
         info_dict = self.__data.info
-        # df = DataFrame(data=[info_dict.values()], columns=info_dict.keys(), index=[self.ticker])
-        # df = df.dropna(axis='columns', how='all', inplace=False)
-        return info_dict
+        df = DataFrame(data=[info_dict.values()], columns=info_dict.keys(), index=[self.ticker])
+        df = df.fillna(0)
+
+        df['netDebt'] = df['totalDebt'] - df['totalCash']  # Попутно вычисляем чистый долг
+        '''Переводим показатели эффективности в процентный вид'''
+        df['grossMargins'] = df['grossMargins'] * 100
+        df['operatingMargins'] = df['operatingMargins'] * 100
+        df['profitMargins'] = df['profitMargins'] * 100
+        df['ebitdaMargins'] = df['ebitdaMargins'] * 100
+        df['returnOnAssets'] = df['returnOnAssets'] * 100
+        df['returnOnEquity'] = df['returnOnEquity'] * 100
+
+        df = df[[
+            'marketCap',
+            'financialCurrency',
+            #   Коэффициенты эффективности
+            'grossMargins',
+            'operatingMargins',
+            'profitMargins',
+            'ebitdaMargins',
+            'returnOnAssets',
+            'returnOnEquity',
+            #   Денежные потоки
+            'ebitda',
+            'operatingCashflow',
+            'freeCashflow',
+            #   Прибыль
+            'totalRevenue',
+            'grossProfits',
+            'netIncomeToCommon',
+            #   Долг
+            # 'totalCash',
+            # 'totalDebt',
+            'netDebt',
+            #   Коэффициенты ликвидности, долга к капиталу
+            'currentRatio',
+            'quickRatio',
+            'debtToEquity',
+        ]]
+
+        '''Добавление курса рубля по валюте отчетности (USD)'''
+        get_currency_course = lambda financial_currency: MoscowExchange.get_currency_course(financial_currency) \
+            if financial_currency != 'RUB' else 1
+        df['currencyCourse'] = df['financialCurrency'].apply(get_currency_course)
+        df['marketCap'] = df['marketCap'] / df['currencyCourse']
+        return df
 
     def get_history(self, period: str = None) -> DataFrame:
         # get historical market data
         # Valid periods: 1d,5d,1mo,3mo,6mo,1y,2y,5y,10y,ytd,max
-
         if period is not None:
             df = self.__data.history(period)
         else:

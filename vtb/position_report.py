@@ -1,32 +1,18 @@
-from base64 import b64decode
-from io import StringIO
-
 import pandas
 from pandas import DataFrame
 
-from moex_stock.bonds import BondsMarket
-from moex_stock.etf_parser import EtfParser
-from moex_stock.shares import SharesMarket
+from moex_stock.moscow_exchange import MoscowExchange
 
 
 class PositionReport:
     def __init__(self, file: str):
-        self.__set_position_report(file)
-        self.__set_shares_report()
-        self.__set_bonds_report()
+        self.__read_csv_to_dataframe(file)
 
-        self.__bonds_etf_df = self.__shares_df[self.__shares_df['category'] == 'bonds']
-        self.__gold_etf_df = self.__shares_df[self.__shares_df['category'] == 'gold']
-        self.__cash_etf_df = self.__shares_df[self.__shares_df['category'] == 'cash']
-        self.__mix_assets_etf_df = self.__shares_df[self.__shares_df['category'] == 'mix_assets']
-
-        self.__shares_df = self.__shares_df.drop(self.__shares_df[self.__shares_df['category'] == 'bonds'].index)
-        self.__shares_df = self.__shares_df.drop(self.__shares_df[self.__shares_df['category'] == 'gold'].index)
-        self.__shares_df = self.__shares_df.drop(self.__shares_df[self.__shares_df['category'] == 'cash'].index)
-
+        self.__join_with_shares_market()
+        self.__join_with_bonds_market()
         self.__set_total_report()
 
-    def __set_position_report(self, file: str):
+    def __read_csv_to_dataframe(self, file: str):
         load_data = pandas.read_csv(file)
 
         load_data = load_data[['textBox14', 'textBox1', 'textBox2', 'textBox7', 'textBox11', 'textBox22',
@@ -59,26 +45,33 @@ class PositionReport:
                                                   'textBox8': 'commission'})
         self.__position_df = position_df
 
-    def __set_shares_report(self):
-        shares_market_df = SharesMarket.update_stock_data()
-        all_etf_df = EtfParser().get_df()
-        shares_market_df = shares_market_df.merge(all_etf_df, how='left', on='ticker')
+    def __join_with_shares_market(self):
+        shares_market_df = MoscowExchange.get_shares_and_etf_df()
 
         '''Результат слияния датасета брокерского отчета с рынком акций биржи'''
-        df = self.__position_df.merge(shares_market_df, how='inner', on='ticker')
-        df = df.rename(columns={'longname': 'name'})
+        shares_and_etf_df = self.__position_df.merge(shares_market_df, how='inner', on='ticker')
+        shares_and_etf_df = shares_and_etf_df.rename(columns={'longname': 'name'})
 
-        df['buy_sum'] = round(df['buy_price'] * df['count'], 2)
-        df['current_sum'] = round(df['current_price'] * df['count'], 2)
-        df['change_sum'] = round(df['current_sum'] - df['buy_sum'], 2)
+        shares_and_etf_df['buy_sum'] = round(shares_and_etf_df['buy_price'] * shares_and_etf_df['count'], 2)
+        shares_and_etf_df['current_sum'] = round(shares_and_etf_df['current_price'] * shares_and_etf_df['count'], 2)
+        shares_and_etf_df['change_sum'] = round(shares_and_etf_df['current_sum'] - shares_and_etf_df['buy_sum'], 2)
+        shares_and_etf_df['income'] = round((shares_and_etf_df['current_price'] - shares_and_etf_df['buy_price']) /
+                                            shares_and_etf_df['buy_price'] * 100, 2)
 
-        df['income'] = round((df['current_price'] - df['buy_price']) / df['buy_price'] * 100, 2)
-        sum_shares = df.current_sum.sum(axis=0)
-        df['weight'] = round(df['current_sum'] / sum_shares * 100, 2)
-        self.__shares_df = df
+        shares_df = shares_and_etf_df[shares_and_etf_df['sectype'].isin(['usual', 'pref', 'dr'])]
+        etf_df = shares_and_etf_df[shares_and_etf_df['sectype'].isin(['open_pif', 'interval_pif', 'close_pif', 'ETF',
+                                                                      'stock_pif'])]
+        sum_shares = shares_df.current_sum.sum(axis=0)
+        sum_etf = etf_df.current_sum.sum(axis=0)
 
-    def __set_bonds_report(self):
-        bonds_market_df = BondsMarket.update_stock_data()
+        shares_df['weight'] = round(shares_df['current_sum'] / sum_shares * 100, 2)
+        etf_df['weight'] = round(etf_df['current_sum'] / sum_etf * 100, 2)
+
+        self.__shares_df = shares_df
+        self.__etf_df = etf_df
+
+    def __join_with_bonds_market(self):
+        bonds_market_df = MoscowExchange.get_bonds_df()
         '''Результат слияния датасета брокерского отчета с рынком облигаций биржи'''
         df = self.__position_df.merge(bonds_market_df, how='inner', on='ticker')
         df = df.rename(columns={'longname': 'name'})
@@ -89,17 +82,13 @@ class PositionReport:
         self.__bonds_df = df
 
     def __set_total_report(self):
-        total_bonds = pandas.concat([self.__bonds_df, self.__bonds_etf_df])
-
         shares_sum = round(self.__shares_df['current_sum'].sum(), 2)
-        bonds_sum = round(total_bonds['current_sum'].sum(), 2)
-        gold_sum = round(self.__gold_etf_df['current_sum'].sum(), 2)
-        cash_sum = round(self.__cash_etf_df['current_sum'].sum(), 2)
+        bonds_sum = round(self.__bonds_df['current_sum'].sum(), 2)
+        etf_sum = round(self.__etf_df['current_sum'].sum(), 2)
 
         total_df = pandas.DataFrame([['Акции', shares_sum],
                                      ['Облигации', bonds_sum],
-                                     ['Золото', gold_sum],
-                                     ['Денежный рынок', cash_sum]],
+                                     ['Фонды', etf_sum]],
                                     columns=['assets', 'sum'])
         self.__total_df = total_df
 
@@ -109,17 +98,8 @@ class PositionReport:
     def get_bonds_df(self) -> DataFrame:
         return self.__bonds_df
 
+    def get_etf_df(self) -> DataFrame:
+        return self.__etf_df
+
     def get_total_df(self) -> DataFrame:
         return self.__total_df
-
-    def get_bonds_etf_df(self) -> DataFrame:
-        return self.__bonds_etf_df
-
-    def get_gold_etf_df(self) -> DataFrame:
-        return self.__gold_etf_df
-
-    def get_cash_etf_df(self) -> DataFrame:
-        return self.__cash_etf_df
-
-    def get_mix_assets_etf_df(self) -> DataFrame:
-        return self.__mix_assets_etf_df
