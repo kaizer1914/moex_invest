@@ -26,8 +26,8 @@ class PositionReport:
         load_data = load_data.drop(index=sell_index)  # Удаляем строки по проданным активам
         load_data = load_data.drop(['textBox7'], axis='columns')  # Удаляем столбец с датами закрытия позиций
 
-        load_data[['textBox22']] = load_data[['textBox22']].replace(r'\s+', '',
-                                                                    regex=True)  # Убираем пробелы в столбце count
+        load_data[['textBox22']] = load_data[['textBox22']].replace(r'\s+', '', regex=True)  # Убираем пробелы в
+        # столбце count
         load_data[['textBox22']] = load_data[['textBox22']].astype(int)  # Назначаем тип данных
 
         position_df = DataFrame()

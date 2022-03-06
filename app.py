@@ -25,10 +25,10 @@ def get_bonds_stock_df() -> DataFrame:
     return bonds_stock_df
 
 
-def get_shares_df() -> DataFrame:
-    only_shares_df = get_shares_and_etf_stock_df()
-    only_shares_df = only_shares_df[only_shares_df['sectype'].isin(['usual', 'pref', 'dr'])]
-    return only_shares_df
+@streamlit.cache
+def get_tickers_df():
+    tickers_df = MoscowExchange.get_tickers_for_yahoo()
+    return tickers_df
 
 
 # Анализ отчета по позициям
@@ -107,7 +107,7 @@ if upload_file is not None:
         streamlit.write(bonds_df)
 
 # Yahoo Finance
-select_companies = streamlit.sidebar.multiselect('Выбрать компании', get_shares_df()['ticker'])
+select_companies = streamlit.sidebar.multiselect('Выбрать компании', get_tickers_df())
 if select_companies:
     compare_df = None
     for ticker in select_companies:
@@ -117,7 +117,7 @@ if select_companies:
         # finance_df = yf_data.get_financials()
         # balance_df = yf_data.get_balance_sheet()
         # cashflow_df = yf_data.get_cashflow()
-        #
+
         # streamlit.write(finance_df)
         # streamlit.write(balance_df)
         # streamlit.write(cashflow_df)

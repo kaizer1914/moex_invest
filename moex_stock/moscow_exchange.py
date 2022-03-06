@@ -19,71 +19,143 @@ class MoscowExchange:
         url = 'https://iss.moex.com/iss/engines/stock/markets/shares/securities.json?iss.meta=off'
         response_data = pandas.read_json(url)
         securities = response_data['securities']
-        market = response_data['marketdata']
+        # market = response_data['marketdata']
 
         '''Задаем содержимое и заголовки колонок'''
-        securities_data = DataFrame(data=securities.data, columns=securities.columns)
-        market_data = DataFrame(data=market.data, columns=market.columns)
+        securities_df = DataFrame(data=securities.data, columns=securities.columns)
+        # market_data = DataFrame(data=market.data, columns=market.columns)
 
-        securities_data = securities_data.merge(market_data, how='left')  # Объединяем таблицы
-        securities_data = securities_data.fillna(0)  # Замена NaN на 0
+        # securities_data = securities_data.merge(market_data, how='left')  # Объединяем таблицы
+        securities_df = securities_df.fillna(0)  # Замена NaN на 0
 
         '''Ищем и удаляем строки'''
-        small_index = securities_data[securities_data['BOARDID'] == 'SMAL'].index.values  # Неполные лоты (акции)
-        speq_index = securities_data[securities_data['BOARDID'] == 'SPEQ'].index.values  # Поставка по СК (акции)
-        tqdp_index = securities_data[securities_data['BOARDID'] == 'TQDP'].index.values  # Крупные пакеты - Акции
-        currency_usd_index = securities_data[securities_data['CURRENCYID'] == 'USD'].index.values  # В долларах
-        currency_eur_index = securities_data[securities_data['CURRENCYID'] == 'EUR'].index.values  # В евро
+        small_index = securities_df[securities_df['BOARDID'] == 'SMAL'].index.values  # Неполные лоты (акции)
+        securities_df = securities_df.drop(index=small_index)
 
-        securities_data = securities_data.drop(index=small_index)
-        securities_data = securities_data.drop(index=speq_index)
-        securities_data = securities_data.drop(index=tqdp_index)
-        securities_data = securities_data.drop(index=currency_usd_index)
-        securities_data = securities_data.drop(index=currency_eur_index)
+        speq_index = securities_df[securities_df['BOARDID'] == 'SPEQ'].index.values  # Поставка по СК (акции)
+        securities_df = securities_df.drop(index=speq_index)
 
-        null_price_index = securities_data[securities_data['LAST'] == 0].index.values
-        securities_data = securities_data.drop(index=null_price_index)
+        tqdp_index = securities_df[securities_df['BOARDID'] == 'TQDP'].index.values  # Крупные пакеты - Акции
+        securities_df = securities_df.drop(index=tqdp_index)
+
+        currency_usd_index = securities_df[securities_df['CURRENCYID'] == 'USD'].index.values  # В долларах
+        securities_df = securities_df.drop(index=currency_usd_index)
+
+        currency_eur_index = securities_df[securities_df['CURRENCYID'] == 'EUR'].index.values  # В евро
+        securities_df = securities_df.drop(index=currency_eur_index)
+
+        null_price_index = securities_df[securities_df['PREVPRICE'] == 0].index.values
+        securities_df = securities_df.drop(index=null_price_index)
 
         '''Отбираем нужные колонки'''
-        securities_data = securities_data[
-            ['SECID', 'SHORTNAME', 'SECNAME', 'ISIN', 'LAST', 'DECIMALS', 'LOTSIZE', 'CURRENCYID',
-             'ISSUECAPITALIZATION', 'SECTYPE', 'LISTLEVEL', 'ISSUESIZE']]
+        securities_df = securities_df[[
+            'SECID', 'SHORTNAME', 'SECNAME', 'ISIN', 'PREVPRICE', 'DECIMALS', 'LOTSIZE', 'CURRENCYID', 'SECTYPE',
+            'LISTLEVEL', 'ISSUESIZE']]
 
         '''Переименовываем колонки'''
-        securities_data = securities_data.rename(columns={'SHORTNAME': 'shortname',
-                                                          'SECID': 'ticker',
-                                                          'SECNAME': 'longname',
-                                                          'ISIN': 'isin',
-                                                          'LAST': 'current_price',
-                                                          'DECIMALS': 'decimals',
-                                                          'LOTSIZE': 'lotsize',
-                                                          'CURRENCYID': 'currency',
-                                                          'ISSUECAPITALIZATION': 'market_cap',
-                                                          'SECTYPE': 'sectype',
-                                                          'LISTLEVEL': 'listlevel',
-                                                          'ISSUESIZE': 'issuesize',
-                                                          })
+        securities_df = securities_df.rename(columns={'SHORTNAME': 'shortname',
+                                                      'SECID': 'ticker',
+                                                      'SECNAME': 'longname',
+                                                      'ISIN': 'isin',
+                                                      'PREVPRICE': 'current_price',
+                                                      'DECIMALS': 'decimals',
+                                                      'LOTSIZE': 'lotsize',
+                                                      'CURRENCYID': 'currency',
+                                                      'ISSUECAPITALIZATION': 'market_cap',
+                                                      'SECTYPE': 'sectype',
+                                                      'LISTLEVEL': 'listlevel',
+                                                      'ISSUESIZE': 'issuesize',
+                                                      })
         '''Округление по данным биржи'''
-        rounded = lambda x: round(x['current_price'], x['decimals'])
-        securities_data['current_price'] = securities_data.apply(rounded, axis=1)
+        round_by_decimals = lambda x: round(x['current_price'], x['decimals'])
+        securities_df['current_price'] = securities_df.apply(round_by_decimals, axis=1)
 
         '''Замена значений типа бумаги на более понятные'''
-        securities_data['sectype'] = securities_data['sectype'].replace('1', 'usual')
-        securities_data['sectype'] = securities_data['sectype'].replace('2', 'pref')
-        securities_data['sectype'] = securities_data['sectype'].replace('9', 'open_pif')
-        securities_data['sectype'] = securities_data['sectype'].replace('A', 'interval_pif')
-        securities_data['sectype'] = securities_data['sectype'].replace('B', 'close_pif')
-        securities_data['sectype'] = securities_data['sectype'].replace('D', 'dr')
-        securities_data['sectype'] = securities_data['sectype'].replace('E', 'ETF')
-        securities_data['sectype'] = securities_data['sectype'].replace('J', 'stock_pif')
+        securities_df['sectype'] = securities_df['sectype'].replace('1', 'usual')
+        securities_df['sectype'] = securities_df['sectype'].replace('2', 'pref')
+        securities_df['sectype'] = securities_df['sectype'].replace('9', 'open_pif')
+        securities_df['sectype'] = securities_df['sectype'].replace('A', 'interval_pif')
+        securities_df['sectype'] = securities_df['sectype'].replace('B', 'close_pif')
+        securities_df['sectype'] = securities_df['sectype'].replace('D', 'dr')
+        securities_df['sectype'] = securities_df['sectype'].replace('E', 'ETF')
+        securities_df['sectype'] = securities_df['sectype'].replace('J', 'stock_pif')
 
-        return securities_data
+        return securities_df
 
     @staticmethod
     def get_foreign_shares_df() -> DataFrame:
         url = 'https://iss.moex.com/iss/engines/stock/markets/foreignshares/securities.json?iss.meta=off'
         response_df = pandas.read_json(url)
+        securities = response_df['securities']
+        market = response_df['marketdata']
+
+        '''Задаем содержимое и заголовки колонок'''
+        securities_df = DataFrame(data=securities.data, columns=securities.columns)
+        market_df = DataFrame(data=market.data, columns=market.columns)
+
+        response_df = securities_df.merge(market_df, how='left')  # Объединяем таблицы
+        response_df = response_df.fillna(0)  # Замена NaN на 0
+
+        '''Отбираем нужные колонки'''
+        response_df = response_df[
+            ['SECID', 'BOARDID', 'SHORTNAME', 'LOTSIZE', 'DECIMALS', 'SECNAME', 'ISSUESIZE', 'ISIN', 'CURRENCYID',
+             'SECTYPE', 'LISTLEVEL', 'PREVPRICE']]
+
+        '''Переименовываем колонки'''
+        response_df = response_df.rename(columns={'SHORTNAME': 'shortname',
+                                                  'SECID': 'ticker',
+                                                  'SECNAME': 'longname',
+                                                  'ISIN': 'isin',
+                                                  'DECIMALS': 'decimals',
+                                                  'LOTSIZE': 'lotsize',
+                                                  'CURRENCYID': 'currency',
+                                                  'SECTYPE': 'sectype',
+                                                  'LISTLEVEL': 'listlevel',
+                                                  'ISSUESIZE': 'issuesize',
+                                                  'BOARDID': 'boardid',
+                                                  'PREVPRICE': 'price'
+                                                  })
+
+        '''Лямбда-функция, убирающая суффикс-RM из тикера'''
+        catch_suffix = lambda suffix: suffix.rsplit('-RM', 1)[0]
+        response_df['ticker'] = response_df['ticker'].apply(catch_suffix)
+
+        '''Определение цены в рублях и в долларах'''
+        usd_df = response_df[response_df['boardid'].isin(['TQBD'])]
+        rub_df = response_df[response_df['boardid'].isin(['FQBR'])]
+
+        usd_df = usd_df.rename(columns={'price': 'price_usd'})
+        rub_df = rub_df.rename(columns={'price': 'price_rub'})
+
+        '''Округление по значению DECIMALS'''
+        rounded_usd = lambda x: round(x['price_usd'], x['decimals'])
+        rounded_rub = lambda x: round(x['price_rub'], x['decimals'])
+
+        usd_df['price_usd'] = usd_df.apply(rounded_usd, axis=1)
+        rub_df['price_rub'] = rub_df.apply(rounded_rub, axis=1)
+
+        usd_df = usd_df.drop(['boardid', 'currency', 'decimals'], axis='columns')
+        rub_df = rub_df.drop(['boardid', 'currency', 'decimals'], axis='columns')
+
+        response_df = pandas.merge(usd_df, rub_df, how='inner',
+                                   on=['ticker', 'shortname', 'lotsize', 'longname', 'isin', 'sectype', 'listlevel',
+                                       'longname', 'issuesize'])
         return response_df
+
+    @staticmethod
+    def get_tickers_for_yahoo() -> DataFrame:
+        add_suffix_me = lambda x: str(x) + '.ME'
+        up_letters = lambda x: str(x).upper()
+
+        native_shares_df = MoscowExchange.get_shares_and_etf_df()
+        native_shares_df = native_shares_df[native_shares_df['sectype'].isin(['usual', 'pref', 'dr'])]
+        native_shares_df['ticker'] = native_shares_df['ticker'].apply(up_letters)
+        native_shares_df['ticker'] = native_shares_df['ticker'].apply(add_suffix_me)
+
+        foreign_shares_df = MoscowExchange.get_foreign_shares_df()
+        foreign_shares_df['ticker'] = foreign_shares_df['ticker'].apply(up_letters)
+        yahoo_df = pandas.merge(native_shares_df['ticker'], foreign_shares_df['ticker'], how='outer')
+        return yahoo_df
 
     @staticmethod
     def get_bonds_df() -> DataFrame:
@@ -173,8 +245,3 @@ class MoscowExchange:
         cur_df = cur_df[cur_df['secid'].isin([currencies_par])]  # Находим строку в датафрейме с валютной парой
         course = cur_df['rate'].values[0]  # Извлекаем значение курса из строки
         return course
-
-
-if __name__ == '__main__':
-    df = MoscowExchange.get_foreign_shares_df()
-    print(df)

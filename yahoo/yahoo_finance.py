@@ -7,7 +7,7 @@ from moex_stock.moscow_exchange import MoscowExchange
 class YahooFinance:
     def __init__(self, ticker: str):
         self.ticker = ticker
-        self.__data = yfinance.Ticker(ticker.upper() + '.ME')
+        self.__data = yfinance.Ticker(ticker.upper())
 
     def get_info(self) -> DataFrame:
         info_dict = self.__data.info
