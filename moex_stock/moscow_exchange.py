@@ -20,9 +20,10 @@ class MoscowExchange:
         response_data = pandas.read_json(url)
         securities = response_data['securities']
         # market = response_data['marketdata']
+        print(securities)
 
         '''Задаем содержимое и заголовки колонок'''
-        securities_df = DataFrame(data=securities.df, columns=securities.columns)
+        securities_df = DataFrame(data=securities.data, columns=securities.columns)
         # market_data = DataFrame(data=market.data, columns=market.columns)
 
         # securities_data = securities_data.merge(market_data, how='left')  # Объединяем таблицы
@@ -93,8 +94,8 @@ class MoscowExchange:
         market = response_df['marketdata']
 
         '''Задаем содержимое и заголовки колонок'''
-        securities_df = DataFrame(data=securities.df, columns=securities.columns)
-        market_df = DataFrame(data=market.df, columns=market.columns)
+        securities_df = DataFrame(data=securities.data, columns=securities.columns)
+        market_df = DataFrame(data=market.data, columns=market.columns)
 
         response_df = securities_df.merge(market_df, how='left')  # Объединяем таблицы
         response_df = response_df.fillna(0)  # Замена NaN на 0
@@ -168,8 +169,8 @@ class MoscowExchange:
         market_yields = response_data['marketdata_yields']
 
         '''Задаем содержимое и заголовки колонок'''
-        securities_data = DataFrame(data=securities.df, columns=securities.columns)
-        market_yields_data = DataFrame(data=market_yields.df, columns=market_yields.columns)
+        securities_data = DataFrame(data=securities.data, columns=securities.columns)
+        market_yields_data = DataFrame(data=market_yields.data, columns=market_yields.columns)
 
         securities_data = securities_data.merge(market_yields_data, how='left')  # Объединяем таблицы
         securities_data = securities_data.fillna(0)  # Замена NaN на 0
@@ -255,7 +256,7 @@ class MoscowExchange:
         url = f'https://iss.moex.com/iss/engines/stock/markets/shares/securities/{ticker}/securities.json?iss.meta=off'
         response_df = pandas.read_json(url)
         securities = response_df['securities']
-        securities_df = DataFrame(data=securities.df, columns=securities.columns)
+        securities_df = DataFrame(data=securities.data, columns=securities.columns)
         founded_df = securities_df[securities_df['BOARDID'].isin(['TQBR'])]
         market_cap = founded_df['PREVPRICE'].values[0] * founded_df['ISSUESIZE'].values[0]
         market_cap_pref = 0
@@ -269,3 +270,5 @@ class MoscowExchange:
             market_cap_pref = founded_df['PREVPRICE'].values[0] * founded_df['ISSUESIZE'].values[0]
         market_cap = market_cap + market_cap_pref
         return market_cap
+
+# Добавить данные для графика за последние несколько лет
