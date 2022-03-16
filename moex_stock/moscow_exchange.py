@@ -22,7 +22,7 @@ class MoscowExchange:
         # market = response_data['marketdata']
 
         '''Задаем содержимое и заголовки колонок'''
-        securities_df = DataFrame(data=securities.data, columns=securities.columns)
+        securities_df = DataFrame(data=securities.df, columns=securities.columns)
         # market_data = DataFrame(data=market.data, columns=market.columns)
 
         # securities_data = securities_data.merge(market_data, how='left')  # Объединяем таблицы
@@ -61,7 +61,7 @@ class MoscowExchange:
                                                       'DECIMALS': 'decimals',
                                                       'LOTSIZE': 'lotsize',
                                                       'CURRENCYID': 'currency',
-                                                      'ISSUECAPITALIZATION': 'market_cap',
+                                                      # 'ISSUECAPITALIZATION': 'market_cap',
                                                       'SECTYPE': 'sectype',
                                                       'LISTLEVEL': 'listlevel',
                                                       'ISSUESIZE': 'issuesize',
@@ -69,6 +69,9 @@ class MoscowExchange:
         '''Округление по данным биржи'''
         round_by_decimals = lambda x: round(x['current_price'], x['decimals'])
         securities_df['current_price'] = securities_df.apply(round_by_decimals, axis=1)
+
+        '''Вычисление рыночной капитализации'''
+        securities_df['market_cap'] = securities_df['issuesize'] * securities_df['current_price']
 
         '''Замена значений типа бумаги на более понятные'''
         securities_df['sectype'] = securities_df['sectype'].replace('1', 'usual')
@@ -90,8 +93,8 @@ class MoscowExchange:
         market = response_df['marketdata']
 
         '''Задаем содержимое и заголовки колонок'''
-        securities_df = DataFrame(data=securities.data, columns=securities.columns)
-        market_df = DataFrame(data=market.data, columns=market.columns)
+        securities_df = DataFrame(data=securities.df, columns=securities.columns)
+        market_df = DataFrame(data=market.df, columns=market.columns)
 
         response_df = securities_df.merge(market_df, how='left')  # Объединяем таблицы
         response_df = response_df.fillna(0)  # Замена NaN на 0
@@ -144,18 +147,18 @@ class MoscowExchange:
 
     @staticmethod
     def get_tickers_for_yahoo() -> DataFrame:
-        add_suffix_me = lambda x: str(x) + '.ME'
-        up_letters = lambda x: str(x).upper()
+        # add_suffix_me = lambda x: str(x) + '.ME'
+        # up_letters = lambda x: str(x).upper()
 
         native_shares_df = MoscowExchange.get_shares_and_etf_df()
         native_shares_df = native_shares_df[native_shares_df['sectype'].isin(['usual', 'pref', 'dr'])]
-        native_shares_df['ticker'] = native_shares_df['ticker'].apply(up_letters)
-        native_shares_df['ticker'] = native_shares_df['ticker'].apply(add_suffix_me)
+        # native_shares_df['ticker'] = native_shares_df['ticker'].apply(up_letters)
+        # native_shares_df['ticker'] = native_shares_df['ticker'].apply(add_suffix_me)
 
-        foreign_shares_df = MoscowExchange.get_foreign_shares_df()
-        foreign_shares_df['ticker'] = foreign_shares_df['ticker'].apply(up_letters)
-        yahoo_df = pandas.merge(native_shares_df['ticker'], foreign_shares_df['ticker'], how='outer')
-        return yahoo_df
+        # foreign_shares_df = MoscowExchange.get_foreign_shares_df()
+        # foreign_shares_df['ticker'] = foreign_shares_df['ticker'].apply(up_letters)
+        # yahoo_df = pandas.merge(native_shares_df['ticker'], foreign_shares_df['ticker'], how='outer')
+        return native_shares_df
 
     @staticmethod
     def get_bonds_df() -> DataFrame:
@@ -165,8 +168,8 @@ class MoscowExchange:
         market_yields = response_data['marketdata_yields']
 
         '''Задаем содержимое и заголовки колонок'''
-        securities_data = DataFrame(data=securities.data, columns=securities.columns)
-        market_yields_data = DataFrame(data=market_yields.data, columns=market_yields.columns)
+        securities_data = DataFrame(data=securities.df, columns=securities.columns)
+        market_yields_data = DataFrame(data=market_yields.df, columns=market_yields.columns)
 
         securities_data = securities_data.merge(market_yields_data, how='left')  # Объединяем таблицы
         securities_data = securities_data.fillna(0)  # Замена NaN на 0
@@ -245,3 +248,24 @@ class MoscowExchange:
         cur_df = cur_df[cur_df['secid'].isin([currencies_par])]  # Находим строку в датафрейме с валютной парой
         course = cur_df['rate'].values[0]  # Извлекаем значение курса из строки
         return course
+
+    @staticmethod
+    def get_market_cap(ticker: str):
+        ticker = ticker.upper()
+        url = f'https://iss.moex.com/iss/engines/stock/markets/shares/securities/{ticker}/securities.json?iss.meta=off'
+        response_df = pandas.read_json(url)
+        securities = response_df['securities']
+        securities_df = DataFrame(data=securities.df, columns=securities.columns)
+        founded_df = securities_df[securities_df['BOARDID'].isin(['TQBR'])]
+        market_cap = founded_df['PREVPRICE'].values[0] * founded_df['ISSUESIZE'].values[0]
+        market_cap_pref = 0
+        if len(ticker) == 5 and ticker[4] == 'P':   # Если префы
+            url = f'https://iss.moex.com/iss/engines/stock/markets/shares/securities/{ticker[:4]}' \
+                  f'/securities.json?iss.meta=off'
+            response_df = pandas.read_json(url)
+            securities = response_df['securities']
+            securities_df = DataFrame(data=securities.df, columns=securities.columns)
+            founded_df = securities_df[securities_df['BOARDID'].isin(['TQBR'])]
+            market_cap_pref = founded_df['PREVPRICE'].values[0] * founded_df['ISSUESIZE'].values[0]
+        market_cap = market_cap + market_cap_pref
+        return market_cap

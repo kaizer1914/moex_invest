@@ -26,14 +26,36 @@ def get_bonds_stock_df() -> DataFrame:
 
 
 @streamlit.cache
-def get_tickers_df():
+def get_tickers_df() -> DataFrame:
     tickers_df = MoscowExchange.get_tickers_for_yahoo()
     return tickers_df
+
+
+@streamlit.cache
+def get_info(ticker: str) -> DataFrame:
+    df = YahooFinance(ticker).get_info()
+    return df
+
+
+@streamlit.cache
+def get_earnings(ticker: str, is_quarterly: bool) -> DataFrame:
+    return YahooFinance(ticker).get_financials(is_quarterly)
+
+
+@streamlit.cache
+def get_balance_sheet(ticker: str, is_quarterly: bool) -> DataFrame:
+    return YahooFinance(ticker).get_balance_sheet(is_quarterly)
+
+
+@streamlit.cache
+def get_cashflow(ticker: str, is_quarterly: bool) -> DataFrame:
+    return YahooFinance(ticker).get_cashflow(is_quarterly)
 
 
 # Анализ отчета по позициям
 upload_file = streamlit.sidebar.file_uploader('Отчет по позициям (ВТБ)', 'csv')
 if upload_file is not None:
+    streamlit.title('Анализ отчета по позициям')
     position_report = get_position_report(upload_file)
 
     with streamlit.expander('По классу активов'):
@@ -107,30 +129,67 @@ if upload_file is not None:
         streamlit.write(bonds_df)
 
 # Yahoo Finance
-select_companies = streamlit.sidebar.multiselect('Выбрать компании', get_tickers_df())
+select_companies = streamlit.sidebar.multiselect('Выбрать компании', get_tickers_df())  # Выбираем тикер из списка
+# компаний Мосбиржи
 if select_companies:
-    compare_df = None
+    streamlit.title('Обзор и сравнение компаний')
+    streamlit.header('Сравнение текущих финансовых показателей')
+
+    # Формирование датафрейма сравнения
+    info_df = None
     for ticker in select_companies:
-        yf_data = YahooFinance(ticker)
-        info_df = yf_data.get_info()
-
-        # finance_df = yf_data.get_financials()
-        # balance_df = yf_data.get_balance_sheet()
-        # cashflow_df = yf_data.get_cashflow()
-
-        # streamlit.write(finance_df)
-        # streamlit.write(balance_df)
-        # streamlit.write(cashflow_df)
-
-        if compare_df is None:
-            compare_df = info_df
+        begin_info_df = get_info(ticker)
+        if info_df is None:
+            info_df = begin_info_df
         else:
-            compare_df = pandas.concat([compare_df, info_df])
-    streamlit.write(compare_df)
+            info_df = pandas.concat([info_df, begin_info_df])
 
-    select_parameters = streamlit.multiselect('Сравнение финансовых показателей', compare_df.columns)
-    if select_parameters:
-        parameters_bar = px.bar(compare_df, x=compare_df.index, y=select_parameters, hover_data=['financialCurrency'],
+    # Диаграмма и таблица текущих показателей
+    info_parameters = streamlit.multiselect('Выбор текущих финансовых показателей', info_df.columns)
+    if info_parameters:
+        info_bar = px.bar(info_df, x=info_df.index, y=info_parameters, hover_data=['financialCurrency'],
+                          labels={'value': 'Значение', 'index': 'Компания', 'variable': 'Финансовые показатели'},
+                          title='Сравнение текущих финансовых показателей', barmode='group')
+        streamlit.plotly_chart(info_bar)
+    streamlit.subheader('Текущие показатели')
+    streamlit.write(info_df)
+
+    # Диаграммы и таблицы отчетов
+    streamlit.header('Обзор компании')
+    select_ticker = streamlit.selectbox('Выбор компании', select_companies)  # Выбор отдельной компании
+    if select_ticker:
+        income = 'Прибыль'
+        balance = 'Баланс'
+        cashflow = 'Денежный поток'
+        yearly = 'Годовой'
+        quarterly = 'Квартальный'
+
+        select_date_range = streamlit.radio('Временной период', (yearly, quarterly))  # Квартальные или годовые отчеты
+        is_quarterly = False
+        if select_date_range == yearly:
+            is_quarterly = False
+        elif select_date_range == quarterly:
+            is_quarterly = True
+
+        select_report = streamlit.radio('Вид отчета',
+                                        (income, balance, cashflow))  # Отчеты: Балансовый, Прибыль, Денежный поток
+        report_df = None
+        if select_report == income:
+            report_df = get_earnings(select_ticker, is_quarterly)
+        elif select_report == balance:
+            report_df = get_balance_sheet(select_ticker, is_quarterly)
+        elif select_report == cashflow:
+            report_df = get_cashflow(select_ticker, is_quarterly)
+
+        report_parameters = streamlit.multiselect('Выбор показателей отчета', report_df.columns)
+        if report_parameters:
+            report_bar = px.bar(report_df, x=report_df.index, y=report_parameters,
                                 labels={'value': 'Значение', 'index': 'Компания', 'variable': 'Финансовые показатели'},
-                                title='Сравнение финансовых показателей', barmode='group')
-        streamlit.plotly_chart(parameters_bar)
+                                title='Сравнение показателей отчета о прибыли', barmode='group')
+            streamlit.plotly_chart(report_bar)
+
+        if is_quarterly:    # Просто для красивой надписи
+            streamlit.subheader(select_report + ' по кварталам')
+        else:
+            streamlit.subheader(select_report + ' по годам')
+        streamlit.write(report_df)
