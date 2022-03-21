@@ -20,7 +20,6 @@ class MoscowExchange:
         response_data = pandas.read_json(url)
         securities = response_data['securities']
         # market = response_data['marketdata']
-        print(securities)
 
         '''Задаем содержимое и заголовки колонок'''
         securities_df = DataFrame(data=securities.data, columns=securities.columns)
@@ -260,7 +259,7 @@ class MoscowExchange:
         founded_df = securities_df[securities_df['BOARDID'].isin(['TQBR'])]
         market_cap = founded_df['PREVPRICE'].values[0] * founded_df['ISSUESIZE'].values[0]
         market_cap_pref = 0
-        if len(ticker) == 5 and ticker[4] == 'P':   # Если префы
+        if len(ticker) == 5 and ticker[4] == 'P':  # Если префы
             url = f'https://iss.moex.com/iss/engines/stock/markets/shares/securities/{ticker[:4]}' \
                   f'/securities.json?iss.meta=off'
             response_df = pandas.read_json(url)
@@ -271,4 +270,51 @@ class MoscowExchange:
         market_cap = market_cap + market_cap_pref
         return market_cap
 
-# Добавить данные для графика за последние несколько лет
+    # Данные для графика за последние несколько лет
+    @staticmethod
+    def get_security_history(ticker: str):
+        ticker = ticker.upper()
+        index = 0
+        page_size = 0
+        total = 1
+        result_df = None
+
+        while index + page_size <= total:
+            url = f'https://iss.moex.com/iss/history/engines/stock/markets/shares/securities/{ticker}.json?' \
+                  f'iss.meta=off&start={index + page_size}'
+            response_df = pandas.read_json(url)
+            history_cursor = response_df['history.cursor']
+            history_cursor_df = DataFrame(data=history_cursor.data, columns=history_cursor.columns)
+
+            index = history_cursor_df['INDEX'].values[0]
+            page_size = history_cursor_df['PAGESIZE'].values[0]
+            total = history_cursor_df['TOTAL'].values[0]
+            # print(index, page_size, total)
+
+            history = response_df['history']
+            history_df = DataFrame(data=history.data, columns=history.columns)
+            history_df = history_df[history_df['BOARDID'].isin(['TQBR'])]
+            if result_df is None:
+                result_df = history_df
+            else:
+                result_df = pandas.concat([result_df, history_df])
+
+        result_df = result_df[['SECID', 'SHORTNAME', 'TRADEDATE', 'NUMTRADES', 'VALUE', 'OPEN', 'LOW', 'HIGH',
+                               'WAPRICE', 'CLOSE', 'VOLUME']]
+        result_df = result_df.rename(columns={'SECID': 'ticker',
+                                              'SHORTNAME': 'short_name',
+                                              'TRADEDATE': 'date',
+                                              'NUMTRADES': 'num_trades',
+                                              'VALUE': 'trading_volume',
+                                              'VOLUME': 'trading_sec',
+                                              'OPEN': 'open_price',
+                                              'LOW': 'low_price',
+                                              'HIGH': 'high_price',
+                                              'WAPRICE': 'medium_price',
+                                              'CLOSE': 'close_price'
+                                              })
+        result_df = result_df.fillna(0)
+        null_price_index = result_df[result_df['trading_sec'] == 0].index.values
+        result_df = result_df.drop(index=null_price_index)
+        result_df = result_df.reset_index(drop=True)
+        return result_df

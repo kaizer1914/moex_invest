@@ -52,6 +52,11 @@ def get_cashflow(ticker: str, is_quarterly: bool) -> DataFrame:
     return YahooFinance(ticker).get_cashflow(is_quarterly)
 
 
+@streamlit.cache
+def get_history_sec(ticker: str):
+    return MoscowExchange.get_security_history(ticker)
+
+
 # Анализ отчета по позициям
 upload_file = streamlit.sidebar.file_uploader('Отчет по позициям (ВТБ)', 'csv')
 if upload_file is not None:
@@ -129,6 +134,7 @@ if upload_file is not None:
         streamlit.write(bonds_df)
 
 # Yahoo Finance
+streamlit.sidebar.header('Yahoo! finance', 'https://finance.yahoo.com/')
 select_companies = streamlit.sidebar.multiselect('Выбрать компании', get_tickers_df())  # Выбираем тикер из списка
 # компаний Мосбиржи
 if select_companies:
@@ -188,8 +194,14 @@ if select_companies:
                                 title='Сравнение показателей отчета о прибыли', barmode='group')
             streamlit.plotly_chart(report_bar)
 
-        if is_quarterly:    # Просто для красивой надписи
+        if is_quarterly:  # Просто для красивой надписи
             streamlit.subheader(select_report + ' по кварталам')
         else:
             streamlit.subheader(select_report + ' по годам')
         streamlit.write(report_df)
+
+        show_history = streamlit.checkbox('Показать исторический график')
+        if show_history:
+            history_df = get_history_sec(select_ticker)
+            history_line = px.line(history_df, history_df['date'], history_df['medium_price'])
+            streamlit.plotly_chart(history_line)
