@@ -8,51 +8,51 @@ from vtb.position_report import PositionReport
 from yahoo.yahoo_finance import YahooFinance
 
 
-@streamlit.cache
+@streamlit.cache(suppress_st_warning=True)
 def get_position_report(file: str) -> PositionReport:
     return PositionReport(file)
 
 
-@streamlit.cache
+@streamlit.cache(suppress_st_warning=True)
 def get_shares_and_etf_stock_df() -> DataFrame:
     shares_and_etf_stock_df = MoscowExchange.get_shares_and_etf_df()
     return shares_and_etf_stock_df
 
 
-@streamlit.cache
+@streamlit.cache(suppress_st_warning=True)
 def get_bonds_stock_df() -> DataFrame:
     bonds_stock_df = MoscowExchange.get_bonds_df()
     return bonds_stock_df
 
 
-@streamlit.cache
+@streamlit.cache(suppress_st_warning=True)
 def get_tickers_df() -> DataFrame:
     tickers_df = MoscowExchange.get_tickers_for_yahoo()
     return tickers_df
 
 
-@streamlit.cache
+@streamlit.cache(suppress_st_warning=True)
 def get_info(ticker: str) -> DataFrame:
     df = YahooFinance(ticker).get_info()
     return df
 
 
-@streamlit.cache
+@streamlit.cache(suppress_st_warning=True)
 def get_earnings(ticker: str, is_quarterly: bool) -> DataFrame:
     return YahooFinance(ticker).get_financials(is_quarterly)
 
 
-@streamlit.cache
+@streamlit.cache(suppress_st_warning=True)
 def get_balance_sheet(ticker: str, is_quarterly: bool) -> DataFrame:
     return YahooFinance(ticker).get_balance_sheet(is_quarterly)
 
 
-@streamlit.cache
+@streamlit.cache(suppress_st_warning=True)
 def get_cashflow(ticker: str, is_quarterly: bool) -> DataFrame:
     return YahooFinance(ticker).get_cashflow(is_quarterly)
 
 
-@streamlit.cache
+@streamlit.cache(suppress_st_warning=True)
 def get_history_sec(ticker: str):
     return MoscowExchange.get_security_history(ticker)
 
