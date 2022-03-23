@@ -200,8 +200,8 @@ if select_companies:
             streamlit.subheader(select_report + ' по годам')
         streamlit.write(report_df)
 
-        show_history = streamlit.checkbox('Показать исторический график')
-        if show_history:
-            history_df = get_history_sec(select_ticker)
-            history_line = px.line(history_df, history_df['date'], history_df['medium_price'])
-            streamlit.plotly_chart(history_line)
+        # show_history = streamlit.checkbox('Показать исторический график')
+        # if show_history:
+        #     history_df = get_history_sec(select_ticker)
+        #     history_line = px.line(history_df, history_df['date'], history_df['medium_price'])
+        #     streamlit.plotly_chart(history_line)
