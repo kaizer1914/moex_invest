@@ -1,4 +1,5 @@
 import pandas
+import plotly
 import plotly.express as px
 import streamlit
 from pandas import DataFrame
@@ -58,7 +59,8 @@ def get_history_sec(ticker: str):
 
 
 # Анализ отчета по позициям
-upload_file = streamlit.sidebar.file_uploader('Отчет по позициям (ВТБ)', 'csv')
+streamlit.sidebar.header('Брокерский отчет')
+upload_file = streamlit.sidebar.file_uploader('Загрузить отчет (ВТБ - по позициям)', 'csv')
 if upload_file is not None:
     streamlit.title('Анализ отчета по позициям')
     position_report = get_position_report(upload_file)
