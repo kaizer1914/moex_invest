@@ -16,7 +16,7 @@ https://iss.moex.com/iss/engines/stock/markets/bonds.xml?iss.meta=off  - спр�
 class MoscowExchange:
     @staticmethod
     def get_shares_and_etf_df() -> DataFrame:
-        url = 'http://iss.moex.com/iss/engines/stock/markets/shares/securities.json?iss.meta=off'
+        url = 'https://iss.moex.com/iss/engines/stock/markets/shares/securities.json?iss.meta=off'
         response_data = pandas.read_json(url)
         securities = response_data['securities']
         # market = response_data['marketdata']
@@ -87,7 +87,7 @@ class MoscowExchange:
 
     @staticmethod
     def get_foreign_shares_df() -> DataFrame:
-        url = 'http://iss.moex.com/iss/engines/stock/markets/foreignshares/securities.json?iss.meta=off'
+        url = 'https://iss.moex.com/iss/engines/stock/markets/foreignshares/securities.json?iss.meta=off'
         response_df = pandas.read_json(url)
         securities = response_df['securities']
         market = response_df['marketdata']
@@ -162,7 +162,7 @@ class MoscowExchange:
 
     @staticmethod
     def get_bonds_df() -> DataFrame:
-        url = 'http://iss.moex.com/iss/engines/stock/markets/bonds/securities.json?iss.meta=off'
+        url = 'https://iss.moex.com/iss/engines/stock/markets/bonds/securities.json?iss.meta=off'
         response_data = pandas.read_json(url)
         securities = response_data['securities']
         market_yields = response_data['marketdata_yields']
@@ -232,7 +232,7 @@ class MoscowExchange:
 
     @staticmethod
     def get_currencies_df() -> DataFrame:
-        url = 'http://iss.moex.com/iss/statistics/engines/futures/markets/indicativerates/securities.json?iss.meta=off'
+        url = 'https://iss.moex.com/iss/statistics/engines/futures/markets/indicativerates/securities.json?iss.meta=off'
         response_df = pandas.read_json(url)
         response_df = response_df['securities']
         response_list = response_df.tolist()
@@ -252,7 +252,7 @@ class MoscowExchange:
     @staticmethod
     def get_market_cap(ticker: str):
         ticker = ticker.upper()
-        url = f'http://iss.moex.com/iss/engines/stock/markets/shares/securities/{ticker}/securities.json?iss.meta=off'
+        url = f'https://iss.moex.com/iss/engines/stock/markets/shares/securities/{ticker}/securities.json?iss.meta=off'
         response_df = pandas.read_json(url)
         securities = response_df['securities']
         securities_df = DataFrame(data=securities.data, columns=securities.columns)
@@ -260,7 +260,7 @@ class MoscowExchange:
         market_cap = founded_df['PREVPRICE'].values[0] * founded_df['ISSUESIZE'].values[0]
         market_cap_pref = 0
         if len(ticker) == 5 and ticker[4] == 'P':  # Если префы
-            url = f'http://iss.moex.com/iss/engines/stock/markets/shares/securities/{ticker[:4]}' \
+            url = f'https://iss.moex.com/iss/engines/stock/markets/shares/securities/{ticker[:4]}' \
                   f'/securities.json?iss.meta=off'
             response_df = pandas.read_json(url)
             securities = response_df['securities']
@@ -280,7 +280,7 @@ class MoscowExchange:
         result_df = None
 
         while index + page_size <= total:
-            url = f'http://iss.moex.com/iss/history/engines/stock/markets/shares/securities/{ticker}.json?' \
+            url = f'https://iss.moex.com/iss/history/engines/stock/markets/shares/securities/{ticker}.json?' \
                   f'iss.meta=off&start={index + page_size}'
             response_df = pandas.read_json(url)
             history_cursor = response_df['history.cursor']
