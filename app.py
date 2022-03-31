@@ -2,15 +2,20 @@ import pandas
 import plotly.express as px
 import streamlit
 from pandas import DataFrame
+from streamlit.uploaded_file_manager import UploadedFile
 
+from broker_report.alpha import BrokerReportAlpha
+from broker_report.position_report_vtb import PositionReportVTB
 from moex_stock.moscow_exchange import MoscowExchange
-from vtb.position_report import PositionReport
 from yahoo.yahoo_finance import YahooFinance
 
 
 @streamlit.cache(suppress_st_warning=True)
-def get_position_report(file: str) -> PositionReport:
-    return PositionReport(file)
+def get_position_report(file: UploadedFile):
+    if file.type == 'text/xml':
+        return BrokerReportAlpha(file)
+    elif file.type == 'text/csv':
+        return PositionReportVTB(file)
 
 
 @streamlit.cache(suppress_st_warning=True)
@@ -57,85 +62,70 @@ def get_history_sec(ticker: str):
     return MoscowExchange.get_security_history(ticker)
 
 
-# Анализ отчета по позициям
+# Отчет по позициям
 streamlit.sidebar.header('Брокерский отчет')
-upload_file = streamlit.sidebar.file_uploader('Загрузить отчет (ВТБ - по позициям)', 'csv')
-if upload_file is not None:
+broker_file = streamlit.sidebar.file_uploader('Загрузить отчет по позициям ВТБ (csv), '
+                                              'брокерский отчет Альфа Банк (xml)',
+                                              ['xml', 'csv'])
+if broker_file is not None:
     streamlit.title('Анализ отчета по позициям')
-    position_report = get_position_report(upload_file)
+    position_report = get_position_report(broker_file)
 
-    with streamlit.expander('По классу активов'):
-        total_df = position_report.get_total_df()
-        total_pie = px.pie(total_df, values='sum', names='assets', title='Активы',
-                           labels={'assets': 'Активы', 'sum': 'Сумма'})
-        streamlit.plotly_chart(total_pie)
+    streamlit.header('По классу активов')
+    total_df = position_report.get_total_df()
+    total_pie = px.pie(total_df, values='sum', names='assets', title='Активы',
+                       labels={'assets': 'Активы', 'sum': 'Сумма'})
+    streamlit.plotly_chart(total_pie)
 
-    with streamlit.expander('Акции'):
-        shares_df = position_report.get_shares_df()
-        labels = {'ticker': 'Тикер', 'name': 'Компания', 'current_sum': 'Текущая сумма', 'change_sum': 'Прибыль'}
+    streamlit.header('Акции')
+    shares_df = position_report.get_shares_df()
+    labels = {'ticker': 'Тикер', 'longname': 'Компания', 'current_sum': 'Текущая сумма'}
+    shares_sum_pie = px.pie(shares_df, values='current_sum', names='longname', hover_data=['ticker'], title='По долям',
+                            labels=labels)
+    streamlit.plotly_chart(shares_sum_pie)
+    streamlit.write(shares_df)
 
-        shares_sum_pie = px.pie(shares_df, values='current_sum', names='name', hover_data=['ticker'], title='По долям',
-                                labels=labels)
-        shares_sum_bar = px.bar(shares_df, x='ticker', y='current_sum', color='change_sum', hover_data=['name'],
-                                labels=labels, title='По сумме')
-        shares_income_bar = px.bar(shares_df, x='ticker', y='change_sum', hover_data=['name', 'current_sum'],
-                                   labels=labels, title='По доходности')
+    streamlit.header('Фонды')
+    labels = {'ticker': 'Тикер', 'longname': 'Наименование', 'current_sum': 'Текущая сумма'}
+    etf_df = position_report.get_etf_df()
+    etf_sum_pie = px.pie(etf_df, values='current_sum', names='longname', hover_data=['ticker'], title='По долям',
+                         labels=labels)
+    streamlit.plotly_chart(etf_sum_pie)
+    streamlit.write(etf_df)
 
-        streamlit.plotly_chart(shares_sum_pie)
-        streamlit.plotly_chart(shares_sum_bar)
-        streamlit.plotly_chart(shares_income_bar)
-        streamlit.write(shares_df)
+    streamlit.header('Облигации')
+    labels = {'current_sum': 'Текущая сумма', 'company': 'Компания', 'region': 'Регион', 'type': 'Тип',
+              'sec-type': 'Тип'}
+    bonds_df = position_report.get_bonds_df()
 
-    with streamlit.expander('Фонды'):
-        labels = {'ticker': 'Тикер', 'name': 'Наименование', 'current_sum': 'Текущая сумма', 'change_sum': 'Прибыль'}
-        etf_df = position_report.get_etf_df()
+    catch_last_word = lambda longname: longname.rsplit(' ', 1)[0]
+    catch_first_word = lambda longname: longname.split(' ', 1)[0]
 
-        etf_sum_pie = px.pie(etf_df, values='current_sum', names='name', hover_data=['ticker'], title='По долям',
-                             labels=labels)
-        etf_sum_bar = px.bar(etf_df, x='ticker', y='current_sum', color='change_sum', hover_data=['name'],
-                             labels=labels, title='По сумме')
-        etf_income_bar = px.bar(etf_df, x='ticker', y='change_sum', hover_data=['name', 'current_sum'],
-                                labels=labels, title='По доходности')
+    bonds_corp_df = bonds_df[bonds_df['sectype'].isin(['Корпоративные'])]
+    bonds_region_df = bonds_df[bonds_df['sectype'].isin(['Муниципальные'])]
+    bonds_ofz_df = bonds_df[bonds_df['sectype'].isin(['ОФЗ'])]
 
-        streamlit.plotly_chart(etf_sum_pie)
-        streamlit.plotly_chart(etf_sum_bar)
-        streamlit.plotly_chart(etf_income_bar)
-        streamlit.write(etf_df)
+    bonds_corp_df['company'] = bonds_corp_df['longname'].apply(catch_last_word)
+    bonds_region_df['region'] = bonds_region_df['longname'].apply(catch_last_word)
+    bonds_ofz_df['type'] = bonds_ofz_df['longname'].apply(catch_first_word)
 
-    with streamlit.expander('Облигации'):
-        labels = {'current_sum': 'Текущая сумма', 'company': 'Компания', 'region': 'Регион', 'type': 'Тип',
-                  'sec-type': 'Тип'}
-        bonds_df = position_report.get_bonds_df()
+    bonds_corp_df.groupby('longname').sum()
+    bonds_region_df.groupby('longname').sum()
+    bonds_ofz_df.groupby('longname').sum()
 
-        catch_last_word = lambda longname: longname.rsplit(' ', 1)[0]
-        catch_first_word = lambda longname: longname.split(' ', 1)[0]
+    all_type_pie = px.pie(bonds_df, values='current_sum', names='sectype', labels=labels, title='По типу')
+    corporate_pie = px.pie(bonds_corp_df, values='current_sum', names='company', labels=labels, title='Корпоративные')
+    region_pie = px.pie(bonds_region_df, values='current_sum', names='region', labels=labels, title='Муниципальные')
+    ofz_pie = px.pie(bonds_ofz_df, values='current_sum', names='type', labels=labels, title='Государственные')
 
-        bonds_corp_df = bonds_df[bonds_df['sectype'].isin(['Корпоративные'])]
-        bonds_region_df = bonds_df[bonds_df['sectype'].isin(['Муниципальные'])]
-        bonds_ofz_df = bonds_df[bonds_df['sectype'].isin(['ОФЗ'])]
-
-        bonds_corp_df['company'] = bonds_corp_df['name'].apply(catch_last_word)
-        bonds_region_df['region'] = bonds_region_df['name'].apply(catch_last_word)
-        bonds_ofz_df['type'] = bonds_ofz_df['name'].apply(catch_first_word)
-
-        bonds_corp_df.groupby('name').sum()
-        bonds_region_df.groupby('name').sum()
-        bonds_ofz_df.groupby('name').sum()
-
-        all_type_pie = px.pie(bonds_df, values='current_sum', names='sectype', labels=labels, title='По типу')
-        corporate_pie = px.pie(bonds_corp_df, values='current_sum', names='company', labels=labels,
-                               title='Корпоративные')
-        region_pie = px.pie(bonds_region_df, values='current_sum', names='region', labels=labels, title='Муниципальные')
-        ofz_pie = px.pie(bonds_ofz_df, values='current_sum', names='type', labels=labels, title='Государственные')
-
-        streamlit.plotly_chart(all_type_pie)
-        streamlit.plotly_chart(ofz_pie)
-        streamlit.plotly_chart(region_pie)
-        streamlit.plotly_chart(corporate_pie)
-        streamlit.write(bonds_df)
+    streamlit.plotly_chart(all_type_pie)
+    streamlit.plotly_chart(ofz_pie)
+    streamlit.plotly_chart(region_pie)
+    streamlit.plotly_chart(corporate_pie)
+    streamlit.write(bonds_df)
 
 # Yahoo Finance
-streamlit.sidebar.header('Yahoo! finance', 'https://finance.yahoo.com/')
+streamlit.sidebar.header('Yahoo! finance')
 select_companies = streamlit.sidebar.multiselect('Выбрать компании', get_tickers_df())  # Выбираем тикер из списка
 # компаний Мосбиржи
 if select_companies:

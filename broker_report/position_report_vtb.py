@@ -4,15 +4,15 @@ from pandas import DataFrame
 from moex_stock.moscow_exchange import MoscowExchange
 
 
-class PositionReport:
-    def __init__(self, file: str):
+class PositionReportVTB:
+    def __init__(self, file):
         self.__read_csv_to_dataframe(file)
 
         self.__join_with_shares_market()
         self.__join_with_bonds_market()
         self.__set_total_report()
 
-    def __read_csv_to_dataframe(self, file: str):
+    def __read_csv_to_dataframe(self, file):
         load_data = pandas.read_csv(file)
 
         load_data = load_data[['textBox14', 'textBox1', 'textBox2', 'textBox7', 'textBox11', 'textBox22',
@@ -50,7 +50,6 @@ class PositionReport:
 
         '''Результат слияния датасета брокерского отчета с рынком акций биржи'''
         shares_and_etf_df = self.__position_df.merge(shares_market_df, how='inner', on='ticker')
-        shares_and_etf_df = shares_and_etf_df.rename(columns={'longname': 'name'})
 
         shares_and_etf_df['buy_sum'] = round(shares_and_etf_df['buy_price'] * shares_and_etf_df['count'], 2)
         shares_and_etf_df['current_sum'] = round(shares_and_etf_df['current_price'] * shares_and_etf_df['count'], 2)
@@ -61,11 +60,7 @@ class PositionReport:
         shares_df = shares_and_etf_df[shares_and_etf_df['sectype'].isin(['usual', 'pref', 'dr'])]
         etf_df = shares_and_etf_df[shares_and_etf_df['sectype'].isin(['open_pif', 'interval_pif', 'close_pif', 'ETF',
                                                                       'stock_pif'])]
-        sum_shares = shares_df.current_sum.sum(axis=0)
-        sum_etf = etf_df.current_sum.sum(axis=0)
-
-        shares_df['weight'] = round(shares_df['current_sum'] / sum_shares * 100, 2)
-        etf_df['weight'] = round(etf_df['current_sum'] / sum_etf * 100, 2)
+        etf_df = etf_df.drop(columns=['issuesize', 'market_cap'])
 
         self.__shares_df = shares_df
         self.__etf_df = etf_df
@@ -74,7 +69,6 @@ class PositionReport:
         bonds_market_df = MoscowExchange.get_bonds_df()
         '''Результат слияния датасета брокерского отчета с рынком облигаций биржи'''
         df = self.__position_df.merge(bonds_market_df, how='inner', on='ticker')
-        df = df.rename(columns={'longname': 'name'})
 
         df['effectiveyield'] = round(df['effectiveyield'], 2)
         df['current_price'] = round((df['price'] / 100 * df['nominal']) + df['nkd'], 2)

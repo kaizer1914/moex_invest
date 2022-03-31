@@ -264,7 +264,7 @@ class MoscowExchange:
                   f'/securities.json?iss.meta=off'
             response_df = pandas.read_json(url)
             securities = response_df['securities']
-            securities_df = DataFrame(data=securities.df, columns=securities.columns)
+            securities_df = DataFrame(data=securities.data, columns=securities.columns)
             founded_df = securities_df[securities_df['BOARDID'].isin(['TQBR'])]
             market_cap_pref = founded_df['PREVPRICE'].values[0] * founded_df['ISSUESIZE'].values[0]
         market_cap = market_cap + market_cap_pref
