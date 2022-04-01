@@ -63,9 +63,9 @@ def get_history_sec(ticker: str):
 
 
 # Отчет по позициям
-streamlit.sidebar.header('Брокерский отчет')
-broker_file = streamlit.sidebar.file_uploader('Загрузить отчет по позициям ВТБ (csv), '
-                                              'брокерский отчет Альфа Банк (xml)',
+streamlit.sidebar.header('Загрузить брокерский отчет')
+broker_file = streamlit.sidebar.file_uploader('Отчет по позициям ВТБ (csv), '
+                                              'Брокерский отчет Альфа Банк (xml)',
                                               ['xml', 'csv'])
 if broker_file is not None:
     streamlit.title('Анализ отчета по позициям')
@@ -152,8 +152,8 @@ if select_companies:
     streamlit.write(info_df)
 
     # Диаграммы и таблицы отчетов
-    streamlit.header('Обзор компании')
-    select_ticker = streamlit.selectbox('Выбор компании', select_companies)  # Выбор отдельной компании
+    streamlit.header('Исторические данные компаний')
+    select_ticker = streamlit.selectbox('Выбор компаний', select_companies)  # Выбор отдельной компании
     if select_ticker:
         income = 'Прибыль'
         balance = 'Баланс'
