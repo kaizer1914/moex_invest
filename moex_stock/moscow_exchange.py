@@ -270,9 +270,9 @@ class MoscowExchange:
         market_cap = market_cap + market_cap_pref
         return market_cap
 
-    # Данные для графика за последние несколько лет
+    # Данные для графика цены акции
     @staticmethod
-    def get_security_history(ticker: str):
+    def get_security_history(ticker: str, begin_date: str) -> DataFrame:
         ticker = ticker.upper()
         index = 0
         page_size = 0
@@ -281,7 +281,7 @@ class MoscowExchange:
 
         while index + page_size <= total:
             url = f'https://iss.moex.com/iss/history/engines/stock/markets/shares/securities/{ticker}.json?' \
-                  f'iss.meta=off&start={index + page_size}'
+                  f'iss.meta=off&start={index + page_size}&from={begin_date}'
             response_df = pandas.read_json(url)
             history_cursor = response_df['history.cursor']
             history_cursor_df = DataFrame(data=history_cursor.data, columns=history_cursor.columns)
@@ -317,4 +317,17 @@ class MoscowExchange:
         null_price_index = result_df[result_df['trading_sec'] == 0].index.values
         result_df = result_df.drop(index=null_price_index)
         result_df = result_df.reset_index(drop=True)
+
+        result_df['average'] = round(result_df['medium_price'] / result_df['medium_price'].mean() * 100, 2)
         return result_df
+
+    @staticmethod
+    def get_securities_history(tickers: list, begin_date: str) -> DataFrame:
+        companies_df = None
+        for ticker in tickers:
+            company_df = MoscowExchange.get_security_history(ticker, begin_date)
+            if companies_df is None:
+                companies_df = company_df
+            else:
+                companies_df = pandas.concat([companies_df, company_df])
+        return companies_df

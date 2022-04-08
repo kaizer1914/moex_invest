@@ -1,3 +1,5 @@
+import datetime
+
 import pandas
 import plotly.express as px
 import streamlit
@@ -58,8 +60,8 @@ def get_cashflow(ticker: str, is_quarterly: bool) -> DataFrame:
 
 
 @streamlit.cache(suppress_st_warning=True)
-def get_history_sec(ticker: str):
-    return MoscowExchange.get_security_history(ticker)
+def get_history_sec(tickers: list, date: str):
+    return MoscowExchange.get_securities_history(tickers, date)
 
 
 # Отчет по позициям
@@ -125,13 +127,13 @@ if broker_file is not None:
     streamlit.write(bonds_df)
 
 # Yahoo Finance
-streamlit.sidebar.header('Yahoo! finance')
+streamlit.sidebar.header('Данные компаний')
 select_companies = streamlit.sidebar.multiselect('Выбрать компании', get_tickers_df())  # Выбираем тикер из списка
 # компаний Мосбиржи
 if select_companies:
     streamlit.title('Обзор и сравнение компаний')
-    streamlit.header('Сравнение текущих финансовых показателей')
 
+    streamlit.header('Сравнение текущих финансовых показателей')
     # Формирование датафрейма сравнения
     info_df = None
     for ticker in select_companies:
@@ -142,18 +144,28 @@ if select_companies:
             info_df = pandas.concat([info_df, begin_info_df])
 
     # Диаграмма и таблица текущих показателей
-    info_parameters = streamlit.multiselect('Выбор текущих финансовых показателей', info_df.columns)
+    info_parameters = streamlit.multiselect('Выбор параметров', info_df.columns)
     if info_parameters:
         info_bar = px.bar(info_df, x=info_df.index, y=info_parameters, hover_data=['financialCurrency'],
                           labels={'value': 'Значение', 'index': 'Компания', 'variable': 'Финансовые показатели'},
-                          title='Сравнение текущих финансовых показателей', barmode='group')
+                          title='Диаграмма показателей', barmode='group')
         streamlit.plotly_chart(info_bar)
-    streamlit.subheader('Текущие показатели')
+    streamlit.subheader('Текущие финансовые показатели')
     streamlit.write(info_df)
+
+    # График сравнения цены
+    streamlit.header('Сравнение цены')
+    date = streamlit.date_input('Выбор даты', datetime.date(2022, 1, 1))
+    history_df = get_history_sec(select_companies, date)
+    history_line = px.line(history_df, x=history_df['date'], y=history_df['average'], color=history_df['ticker'],
+                           labels={'date': 'Дата', 'average': 'Средняя цена, %', 'ticker': 'Тикер',
+                                   'medium_price': 'Средняя цена'},
+                           hover_data=['medium_price'], title='Ценовая диаграмма')
+    streamlit.plotly_chart(history_line)
 
     # Диаграммы и таблицы отчетов
     streamlit.header('Исторические данные компаний')
-    select_ticker = streamlit.selectbox('Выбор компаний', select_companies)  # Выбор отдельной компании
+    select_ticker = streamlit.selectbox('Выбор компании', select_companies)  # Выбор отдельной компании
     if select_ticker:
         income = 'Прибыль'
         balance = 'Баланс'
@@ -190,9 +202,3 @@ if select_companies:
         else:
             streamlit.subheader(select_report + ' по годам')
         streamlit.write(report_df)
-
-        # show_history = streamlit.checkbox('Показать исторический график')
-        # if show_history:
-        #     history_df = get_history_sec(select_ticker)
-        #     history_line = px.line(history_df, history_df['date'], history_df['medium_price'])
-        #     streamlit.plotly_chart(history_line)
