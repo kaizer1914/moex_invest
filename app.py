@@ -132,7 +132,6 @@ select_companies = streamlit.sidebar.multiselect('Выбрать компани�
 # компаний Мосбиржи
 if select_companies:
     streamlit.title('Обзор и сравнение компаний')
-
     streamlit.header('Сравнение текущих финансовых показателей')
     # Формирование датафрейма сравнения
     info_df = None
@@ -155,7 +154,8 @@ if select_companies:
 
     # График сравнения цены
     streamlit.header('Сравнение цены')
-    date = streamlit.date_input('Выбор даты', datetime.date(2022, 1, 1))
+    now = datetime.date.today()
+    date = streamlit.date_input('Выбор даты', datetime.date(now.year - 1, now.month, now.day))
     history_df = get_history_sec(select_companies, date)
     history_line = px.line(history_df, x=history_df['date'], y=history_df['average'], color=history_df['ticker'],
                            labels={'date': 'Дата', 'average': 'Средняя цена, %', 'ticker': 'Тикер',
