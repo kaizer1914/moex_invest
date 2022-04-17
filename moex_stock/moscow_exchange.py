@@ -1,4 +1,5 @@
 import pandas
+from numpy import datetime64
 from pandas import DataFrame
 
 '''
@@ -174,15 +175,19 @@ class MoscowExchange:
         securities_data = securities_data.merge(market_yields_data, how='left')  # Объединяем таблицы
         securities_data = securities_data.fillna(0)  # Замена NaN на 0
 
-        empty_index = securities_data[securities_data['PRICE'] == 0].index.values  # Ищем строки с нулевой ценой
-
-        '''Удаляем такие строки'''
+        '''Удаляем такие строки с нулевой ценой'''
+        empty_index = securities_data[securities_data['PRICE'] == 0].index.values
         securities_data = securities_data.drop(index=empty_index)
+
+        '''Удаляем ипотечные облигации'''
+        bad_bonds = securities_data[securities_data['YIELDDATETYPE'] == 0].index.values
+        securities_data = securities_data.drop(index=bad_bonds)
 
         '''Отбираем нужные колонки'''
         securities_data = securities_data[
             ['SECID', 'SHORTNAME', 'SECNAME', 'ISIN', 'PRICE', 'DECIMALS', 'ACCRUEDINT', 'LOTVALUE',
-             'LOTSIZE', 'CURRENCYID', 'COUPONVALUE', 'COUPONPERCENT', 'COUPONPERIOD', 'NEXTCOUPON', 'EFFECTIVEYIELD',
+             'LOTSIZE', 'CURRENCYID',
+             'COUPONVALUE', 'COUPONPERCENT', 'COUPONPERIOD', 'NEXTCOUPON', 'EFFECTIVEYIELD',
              'DURATION', 'YIELDDATE', 'YIELDDATETYPE', 'OFFERDATE', 'MATDATE', 'ISSUESIZEPLACED', 'SECTYPE',
              'LISTLEVEL']]
 
@@ -215,9 +220,11 @@ class MoscowExchange:
                                                           'SECTYPE': 'sectype',
                                                           'LISTLEVEL': 'listlevel'
                                                           })
+
         '''Округление по данным биржи'''
         rounded = lambda x: round(x['price'], x['decimals'])
         securities_data['price'] = securities_data.apply(rounded, axis=1)
+        securities_data = securities_data.drop(['decimals'], axis=1)
 
         '''Замена значений типа бумаги на более понятные'''
         securities_data['sectype'] = securities_data['sectype'].replace('3', 'ОФЗ')
@@ -227,6 +234,11 @@ class MoscowExchange:
         securities_data['sectype'] = securities_data['sectype'].replace('7', 'МФО')
         securities_data['sectype'] = securities_data['sectype'].replace('8', 'Корпоративные')
         securities_data['sectype'] = securities_data['sectype'].replace('C', 'Муниципальные')
+
+        """Приводим к типу данных строки"""
+        securities_data['yielddate'] = securities_data['yielddate'].astype(datetime64)
+        securities_data['enddate'] = securities_data['enddate'].astype(datetime64)
+        securities_data['offerdate'] = securities_data['offerdate'].astype(datetime64)
 
         return securities_data
 
